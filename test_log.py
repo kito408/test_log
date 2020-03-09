@@ -2,7 +2,7 @@
 
 import sys
 import time
-# import cereal.messaging as messaging
+import cereal.messaging as messaging
 
 arguments = len(sys.argv) - 1
 position = 1
@@ -37,8 +37,6 @@ while (arguments >= position):
     if (sys.argv[position] == "-TEST"):
         desktop_testing = True      
         print ("desktop_testing is enabled")
-    else:
-        import cereal.messaging as messaging
     position = position + 1
 
 if (desktop_testing):
@@ -89,8 +87,9 @@ while sm is not None:
             data_diffSteer = gGlobalData.angleSteers - gGlobalData.angleSteersDes
             if (abs(data_diffSteer)<= 3):
                 gGlobalData.iGoodCount = gGlobalData.iGoodCount + 1
-            print_data_log()
-            normalize_count()
+            if (gGlobalData.iValidCount%64==0):
+                print_data_log()
+                normalize_count()
         else:
             print ( 'CS Ready, but Data not valid. ', gGlobalData.iStopCount )
             gGlobalData.iStopCount = gGlobalData.iStopCount + 1
