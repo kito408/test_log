@@ -20,8 +20,9 @@ class GlobalData:
 gGlobalData = GlobalData()
 
 def print_data_log ():
-    print (gGlobalData.iGoodCount, "/", gGlobalData.iValidCount, "=",
-          "{0:8.4f}".format ( (gGlobalData.iGoodCount / gGlobalData.iValidCount)*100.0), "%" )
+    print (gGlobalData.angleSteers, ",", gGlobalData.angleSteersDes, ",",
+        gGlobalData.iGoodCount, "/", gGlobalData.iValidCount, "=",
+        "{0:8.4f}".format ( (gGlobalData.iGoodCount / gGlobalData.iValidCount)*100.0), "%" )
 
 def normalize_count ():
     if (gGlobalData.iValidCount <= 100000000) or (gGlobalData.iGoodCount <= 0):
@@ -89,7 +90,7 @@ while sm is not None:
                 gGlobalData.iGoodCount = gGlobalData.iGoodCount + 1
             if (gGlobalData.iValidCount%64==0):
                 print_data_log()
-                normalize_count()
+                git lognormalize_count()
         else:
             print ( 'CS Ready, but Data not valid. ', gGlobalData.iStopCount )
             gGlobalData.iStopCount = gGlobalData.iStopCount + 1
