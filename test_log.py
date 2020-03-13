@@ -89,8 +89,9 @@ while sm is not None:
             if (abs(data_diffSteer)<= 3):
                 gGlobalData.iGoodCount = gGlobalData.iGoodCount + 1
             if (gGlobalData.iValidCount%64==0):
+                print (cs)
                 print_data_log()
-                git lognormalize_count()
+                normalize_count()
         else:
             print ( 'CS Ready, but Data not valid. ', gGlobalData.iStopCount )
             gGlobalData.iStopCount = gGlobalData.iStopCount + 1
