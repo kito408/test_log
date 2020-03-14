@@ -26,10 +26,13 @@ class GlobalData:
 gGlobalData = GlobalData()
 
 def print_data_log ():
+    if gGlobalData.iValidCount==0:
+       print ("Start car to begin collecting data.")
+       return
     sum_count = gGlobalData.aiBucket[0];
     print ( "Steer error < 1 = ", sum_count, "/", gGlobalData.iValidCount, "=",
             "{0:8.4f}".format ( (sum_count / gGlobalData.iValidCount)*100.0), "%" )
-
+ 
     sum_count = sum_count + gGlobalData.aiBucket[1] + gGlobalData.aiBucket[11];
     print ( "Steer error < 2 = ", sum_count, "/", gGlobalData.iValidCount, "=",
             "{0:8.4f}".format ( (sum_count / gGlobalData.iValidCount)*100.0), "%" )
@@ -43,12 +46,12 @@ def print_data_log ():
             largest_count = gGlobalData.aiBucket[x];
     for x in range(20, 10, -1):
         bar_string ="";
-        for y in range (int((gGlobalData.aiBucket[x] / largest_count) * 30.0)):
+        for y in range (int((gGlobalData.aiBucket[x] / largest_count) * 60.0)):
             bar_string = bar_string + "*"
         print ("{0:3d}".format(10- x), ':', "{0:7d}".format(gGlobalData.aiBucket[x]), ':', bar_string)
     for x in range(0, 11):
         bar_string ="";
-        for y in range(int((gGlobalData.aiBucket[x] / largest_count) * 30.0)):
+        for y in range(int((gGlobalData.aiBucket[x] / largest_count) * 60.0)):
             bar_string = bar_string + "*"
         print ( "{0:3d}".format(x), ':', "{0:7d}".format(gGlobalData.aiBucket[x]), ':', bar_string)
 
