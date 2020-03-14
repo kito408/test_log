@@ -11,8 +11,8 @@ position = 1
 desktop_testing = False
 
 print_info_slowdown = 128 # increase to reduce update frequency
-mul_cols = 150.0          # the ratio for each bucket is mutiplied by this number  
-max_cols = 100.0             # the max number of columns to display(if max_cols < mul_cols, some buckets are clipped)
+mul_cols = 200.0          # the ratio for each bucket is mutiplied by this number  
+max_cols = 80.0             # the max number of columns to display(if max_cols < mul_cols, some buckets are clipped)
 
 class GlobalData:
     enabled = False
