@@ -11,6 +11,8 @@ position = 1
 desktop_testing = False
 
 print_info_slowdown = 128 # increase to reduce update frequency
+mul_cols = 150.0          # the ratio for each bucket is mutiplied by this number  
+max_cols = 100.0             # the max number of columns to display(if max_cols < mul_cols, some buckets are clipped)
 
 class GlobalData:
     enabled = False
@@ -21,39 +23,52 @@ class GlobalData:
     iStopCount = 0           # timeout if data is not valid for a long time
     iValidCount = 0
     iLastPrintCount = -1;
-    aiBucket = array.array('l',[0,0,0,0,0,0,0,0,0,0, 0, 0,0,0,0,0,0,0,0,0,0])
+    aiBucket = array.array('l',[ 0,0,0,0,0,0,0,0,0,0,0,   # 00..10
+                                 0,0,0,0,0,0,0,0,0,0,0])  # 11..21
 
 gGlobalData = GlobalData()
+
+def print_one_bucket (x, largest_count, negative_buckets):
+    bar_string ="";
+    for y in range (int((gGlobalData.aiBucket[x] / largest_count) * mul_cols)):
+        if len(bar_string) >= max_cols:
+            bar_string = bar_string + "+"
+            break;    
+        bar_string = bar_string + "*"
+    if negative_buckets:
+        if x == 21:
+            print ("  *,{1:3d}".format(10-x, 11-x), ':', "{0:7d}".format(gGlobalData.aiBucket[x]), ':', bar_string)
+        else:
+            print ("{0:3d},{1:3d}".format(10-x, 11-x), ':', "{0:7d}".format(gGlobalData.aiBucket[x]), ':', bar_string)
+    else:
+        if x != 10:
+            print ("{0:3d},{1:3d}".format(x,x+1), ':', "{0:7d}".format(gGlobalData.aiBucket[x]), ':', bar_string)
+        else:
+            print ("{0:3d},  *".format(x,x+1), ':', "{0:7d}".format(gGlobalData.aiBucket[x]), ':', bar_string)
 
 def print_data_log ():
     if gGlobalData.iValidCount==0:
        print ("Start car to begin collecting data.")
        return
     sum_count = gGlobalData.aiBucket[0];
-    print ( "Steer error < 1 = ", sum_count, "/", gGlobalData.iValidCount, "=",
-            "{0:8.4f}".format ( (sum_count / gGlobalData.iValidCount)*100.0), "%" )
+    print ( "Steer Error<1={0:8.4f}".format ( (sum_count / gGlobalData.iValidCount)*100.0), "% (",
+            sum_count, "/", gGlobalData.iValidCount, "),", end =" ") 
  
     sum_count = sum_count + gGlobalData.aiBucket[1] + gGlobalData.aiBucket[11];
-    print ( "Steer error < 2 = ", sum_count, "/", gGlobalData.iValidCount, "=",
-            "{0:8.4f}".format ( (sum_count / gGlobalData.iValidCount)*100.0), "%" )
+    print ( "Error<2={0:8.4f}".format ( (sum_count / gGlobalData.iValidCount)*100.0), "% (",
+            sum_count, "/", gGlobalData.iValidCount, "),", end =" ")  
 
     sum_count = sum_count + gGlobalData.aiBucket[2] + gGlobalData.aiBucket[12];
-    print ( "Steer error < 3 = ", sum_count, "/", gGlobalData.iValidCount, "=",
-            "{0:8.4f}".format ( (sum_count / gGlobalData.iValidCount)*100.0), "%" )
+    print ( "Error<3={0:8.4f}".format ( (sum_count / gGlobalData.iValidCount)*100.0), "% (",
+             sum_count, "/", gGlobalData.iValidCount, ")"  )
     largest_count = 0;
-    for x in range(21):
+    for x in range(22):
         if (gGlobalData.aiBucket[x]>largest_count):
             largest_count = gGlobalData.aiBucket[x];
-    for x in range(20, 10, -1):
-        bar_string ="";
-        for y in range (int((gGlobalData.aiBucket[x] / largest_count) * 60.0)):
-            bar_string = bar_string + "*"
-        print ("{0:3d}".format(10- x), ':', "{0:7d}".format(gGlobalData.aiBucket[x]), ':', bar_string)
+    for x in range(21, 10, -1):
+        print_one_bucket (x, largest_count, True)
     for x in range(0, 11):
-        bar_string ="";
-        for y in range(int((gGlobalData.aiBucket[x] / largest_count) * 60.0)):
-            bar_string = bar_string + "*"
-        print ( "{0:3d}".format(x), ':', "{0:7d}".format(gGlobalData.aiBucket[x]), ':', bar_string)
+        print_one_bucket (x, largest_count, False)
 
 # prevent_overflow = div 2 everything to prevent overflow
 def prevent_overflow ():
@@ -149,35 +164,35 @@ while sm is not None:
                     gGlobalData.aiBucket[10] = gGlobalData.aiBucket[10] + 1
             else:
                 if (data_diffSteer > -1.0):
-                    gGlobalData.aiBucket[0] = gGlobalData.aiBucket[0] + 1
-                elif (data_diffSteer > -2.0):
                     gGlobalData.aiBucket[11] = gGlobalData.aiBucket[11] + 1
-                elif (data_diffSteer > -3.0):
+                elif (data_diffSteer > -2.0):
                     gGlobalData.aiBucket[12] = gGlobalData.aiBucket[12] + 1
-                elif (data_diffSteer > -4.0):
+                elif (data_diffSteer > -3.0):
                     gGlobalData.aiBucket[13] = gGlobalData.aiBucket[13] + 1
-                elif (data_diffSteer > -5.0):
+                elif (data_diffSteer > -4.0):
                     gGlobalData.aiBucket[14] = gGlobalData.aiBucket[14] + 1
-                elif (data_diffSteer > -6.0):
+                elif (data_diffSteer > -5.0):
                     gGlobalData.aiBucket[15] = gGlobalData.aiBucket[15] + 1
-                elif (data_diffSteer > -7.0):
+                elif (data_diffSteer > -6.0):
                     gGlobalData.aiBucket[16] = gGlobalData.aiBucket[16] + 1
-                elif (data_diffSteer > -8.0):
+                elif (data_diffSteer > -7.0):
                     gGlobalData.aiBucket[17] = gGlobalData.aiBucket[17] + 1
-                elif (data_diffSteer > -9.0):
+                elif (data_diffSteer > -8.0):
                     gGlobalData.aiBucket[18] = gGlobalData.aiBucket[18] + 1
-                elif (data_diffSteer > -10.0):
+                elif (data_diffSteer > -9.0):
                     gGlobalData.aiBucket[19] = gGlobalData.aiBucket[19] + 1
-                else:
+                elif (data_diffSteer > -10.0):
                     gGlobalData.aiBucket[20] = gGlobalData.aiBucket[20] + 1
+                else:
+                    gGlobalData.aiBucket[21] = gGlobalData.aiBucket[21] + 1
         else:
             if (gGlobalData.iStopCount%print_info_slowdown==0):
                 print_data_log()
-                print ( 'CS Ready, but Data not valid. ', gGlobalData.iStopCount, gGlobalData.valid, gGlobalData.enabled, gGlobalData.speed )
+                print ( 'CS Ready, but Data not valid. ', gGlobalData.iStopCount, gGlobalData.valid, gGlobalData.enabled )
             gGlobalData.iStopCount = gGlobalData.iStopCount + 1
             time.sleep(0.1)
     if (gGlobalData.iValidCount%print_info_slowdown==0) and (gGlobalData.iStopCount == 0) and (gGlobalData.iLastPrintCount != gGlobalData.iValidCount):
-        print ( 'CS Ready, Data Valid, Speed = ', gGlobalData.speed );
+        print ( 'CS Ready, Data Valid, Speed = {0:8.4f}'.format(gGlobalData.speed) ) 
         gGlobalData.iLastPrintCount = gGlobalData.iValidCount;
         print_data_log()
         prevent_overflow()
