@@ -2,35 +2,64 @@
 
 import sys
 import time
+import array
 import cereal.messaging as messaging
+
 
 arguments = len(sys.argv) - 1
 position = 1
 desktop_testing = False
+
+print_info_slowdown = 128 # increase to reduce update frequency
 
 class GlobalData:
     enabled = False
     valid   = False
     angleSteers  = 0.0
     angleSteersDes = 0.0
+    speed = 0.0
     iStopCount = 0           # timeout if data is not valid for a long time
     iValidCount = 0
-    iGoodCount = 0
+    iLastPrintCount = -1;
+    aiBucket = array.array('l',[0,0,0,0,0,0,0,0,0,0, 0, 0,0,0,0,0,0,0,0,0,0])
 
 gGlobalData = GlobalData()
 
 def print_data_log ():
-    print (gGlobalData.angleSteers, ",", gGlobalData.angleSteersDes, ",",
-        gGlobalData.iGoodCount, "/", gGlobalData.iValidCount, "=",
-        "{0:8.4f}".format ( (gGlobalData.iGoodCount / gGlobalData.iValidCount)*100.0), "%" )
+    sum_count = gGlobalData.aiBucket[0];
+    print ( "Steer error < 1 = ", sum_count, "/", gGlobalData.iValidCount, "=",
+            "{0:8.4f}".format ( (sum_count / gGlobalData.iValidCount)*100.0), "%" )
 
-def normalize_count ():
-    if (gGlobalData.iValidCount <= 100000000) or (gGlobalData.iGoodCount <= 0):
+    sum_count = sum_count + gGlobalData.aiBucket[1] + gGlobalData.aiBucket[11];
+    print ( "Steer error < 2 = ", sum_count, "/", gGlobalData.iValidCount, "=",
+            "{0:8.4f}".format ( (sum_count / gGlobalData.iValidCount)*100.0), "%" )
+
+    sum_count = sum_count + gGlobalData.aiBucket[2] + gGlobalData.aiBucket[12];
+    print ( "Steer error < 3 = ", sum_count, "/", gGlobalData.iValidCount, "=",
+            "{0:8.4f}".format ( (sum_count / gGlobalData.iValidCount)*100.0), "%" )
+    largest_count = 0;
+    for x in range(21):
+        if (gGlobalData.aiBucket[x]>largest_count):
+            largest_count = gGlobalData.aiBucket[x];
+    for x in range(20, 10, -1):
+        bar_string ="";
+        for y in range (int((gGlobalData.aiBucket[x] / largest_count) * 30.0)):
+            bar_string = bar_string + "*"
+        print ("{0:3d}".format(10- x), ':', "{0:7d}".format(gGlobalData.aiBucket[x]), ':', bar_string)
+    for x in range(0, 11):
+        bar_string ="";
+        for y in range(int((gGlobalData.aiBucket[x] / largest_count) * 30.0)):
+            bar_string = bar_string + "*"
+        print ( "{0:3d}".format(x), ':', "{0:7d}".format(gGlobalData.aiBucket[x]), ':', bar_string)
+
+# prevent_overflow = div 2 everything to prevent overflow
+def prevent_overflow ():
+    if (gGlobalData.iValidCount <= 100000000):
         return  
-    if (gGlobalData.iValidCount%2 != 0) or (gGlobalData.iGoodCount%2 != 0):
-        return
-    gGlobalData.iValidCount = gGlobalData.iValidCount / 2
-    gGlobalData.iGoodCount  = gGlobalData.iGoodCount / 2
+    gGlobalData.iValidCount = 0;
+    for x in range(21):
+        gGlobalData.aiBucket[x] = gGlobalData.aiBucket[x] / 2;
+        gGlobalData.iValidCount = gGlobalData.iValidCount + gGlobalData.aiBucket[x];
     return
 
 while (arguments >= position):
@@ -47,6 +76,7 @@ if (desktop_testing):
         enabled = True
         angleSteers = 0.0
         angleSteersDes = 0.0
+        vEgo = 0.0
 
     class test_data():
         valid = True;
@@ -57,10 +87,12 @@ if (desktop_testing):
         def recv_one (self, soc):
             fake_messaging.icallcount = fake_messaging.icallcount + 1
             data = test_data()
-            data.controlsState.angleSteers = random.random() * 5.0;
-            data.controlsState.angleSteersDes = random.random() * 5.0;
-            if fake_messaging.icallcount > 1000:
-                data.valid = False;
+            data.controlsState.angleSteers = random.random() * 11.0;
+            data.controlsState.angleSteersDes = random.random() * 11.0;
+            data.controlsState.vEgo  = random.random() * 60.0 + 10.0;
+            if fake_messaging.icallcount > 10000:
+                data.valid = random.random() > -0.01;
+            time.sleep(0.001)
             return data
 
     messaging = fake_messaging()
@@ -75,28 +107,78 @@ while sm is not None:
     if cs is None:
         #exit if too many empty/invalid frames come in
         gGlobalData.iStopCount = gGlobalData.iStopCount + 1 
-        print ( 'CS not ready. ', gGlobalData.iStopCount )
+        if (gGlobalData.iStopCount%print_info_slowdown==0):
+            print_data_log()
+            print ( 'CS not ready. ', gGlobalData.iStopCount )
         time.sleep(0.1)
     else:
         gGlobalData.valid   = cs.valid
         gGlobalData.enabled = cs.controlsState.enabled
-        if (gGlobalData.valid and gGlobalData.enabled):
+        gGlobalData.speed   = cs.controlsState.vEgo
+        if (gGlobalData.valid and gGlobalData.enabled and (gGlobalData.speed > 10)):
             gGlobalData.iStopCount = 0
             gGlobalData.iValidCount = gGlobalData.iValidCount + 1
             gGlobalData.angleSteers = cs.controlsState.angleSteers
             gGlobalData.angleSteersDes = cs.controlsState.angleSteersDes
             data_diffSteer = gGlobalData.angleSteers - gGlobalData.angleSteersDes
-            if (abs(data_diffSteer)<= 3):
-                gGlobalData.iGoodCount = gGlobalData.iGoodCount + 1
-            if (gGlobalData.iValidCount%64==0):
-                print (cs)
-                print_data_log()
-                normalize_count()
+            if (data_diffSteer > 0.0):
+                if (data_diffSteer < 1.0):
+                    gGlobalData.aiBucket[0] = gGlobalData.aiBucket[0] + 1
+                elif (abs(data_diffSteer)< 2.0):
+                    gGlobalData.aiBucket[1] = gGlobalData.aiBucket[1] + 1
+                elif (abs(data_diffSteer)< 3.0):
+                    gGlobalData.aiBucket[2] = gGlobalData.aiBucket[2] + 1
+                elif (abs(data_diffSteer)< 4.0):
+                    gGlobalData.aiBucket[3] = gGlobalData.aiBucket[3] + 1
+                elif (abs(data_diffSteer)< 5.0):
+                    gGlobalData.aiBucket[4] = gGlobalData.aiBucket[4] + 1
+                elif (abs(data_diffSteer)< 6.0):
+                    gGlobalData.aiBucket[5] = gGlobalData.aiBucket[5] + 1
+                elif (abs(data_diffSteer)< 7.0):
+                    gGlobalData.aiBucket[6] = gGlobalData.aiBucket[6] + 1
+                elif (abs(data_diffSteer)< 8.0):
+                    gGlobalData.aiBucket[7] = gGlobalData.aiBucket[7] + 1
+                elif (abs(data_diffSteer)< 9.0):
+                    gGlobalData.aiBucket[8] = gGlobalData.aiBucket[8] + 1
+                elif (abs(data_diffSteer)< 10.0):
+                    gGlobalData.aiBucket[9] = gGlobalData.aiBucket[9] + 1
+                else:
+                    gGlobalData.aiBucket[10] = gGlobalData.aiBucket[10] + 1
+            else:
+                if (data_diffSteer > -1.0):
+                    gGlobalData.aiBucket[0] = gGlobalData.aiBucket[0] + 1
+                elif (data_diffSteer > -2.0):
+                    gGlobalData.aiBucket[11] = gGlobalData.aiBucket[11] + 1
+                elif (data_diffSteer > -3.0):
+                    gGlobalData.aiBucket[12] = gGlobalData.aiBucket[12] + 1
+                elif (data_diffSteer > -4.0):
+                    gGlobalData.aiBucket[13] = gGlobalData.aiBucket[13] + 1
+                elif (data_diffSteer > -5.0):
+                    gGlobalData.aiBucket[14] = gGlobalData.aiBucket[14] + 1
+                elif (data_diffSteer > -6.0):
+                    gGlobalData.aiBucket[15] = gGlobalData.aiBucket[15] + 1
+                elif (data_diffSteer > -7.0):
+                    gGlobalData.aiBucket[16] = gGlobalData.aiBucket[16] + 1
+                elif (data_diffSteer > -8.0):
+                    gGlobalData.aiBucket[17] = gGlobalData.aiBucket[17] + 1
+                elif (data_diffSteer > -9.0):
+                    gGlobalData.aiBucket[18] = gGlobalData.aiBucket[18] + 1
+                elif (data_diffSteer > -10.0):
+                    gGlobalData.aiBucket[19] = gGlobalData.aiBucket[19] + 1
+                else:
+                    gGlobalData.aiBucket[20] = gGlobalData.aiBucket[20] + 1
         else:
-            print ( 'CS Ready, but Data not valid. ', gGlobalData.iStopCount )
+            if (gGlobalData.iStopCount%print_info_slowdown==0):
+                print_data_log()
+                print ( 'CS Ready, but Data not valid. ', gGlobalData.iStopCount, gGlobalData.valid, gGlobalData.enabled, gGlobalData.speed )
             gGlobalData.iStopCount = gGlobalData.iStopCount + 1
             time.sleep(0.1)
-    if (gGlobalData.iStopCount > 9000):
+    if (gGlobalData.iValidCount%print_info_slowdown==0) and (gGlobalData.iStopCount == 0) and (gGlobalData.iLastPrintCount != gGlobalData.iValidCount):
+        print ( 'CS Ready, Data Valid, Speed = ', gGlobalData.speed );
+        gGlobalData.iLastPrintCount = gGlobalData.iValidCount;
+        print_data_log()
+        prevent_overflow()
+    elif (gGlobalData.iStopCount > 1000000):
         break
     #end of while loop
 
